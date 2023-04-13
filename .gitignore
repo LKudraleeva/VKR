@@ -12,6 +12,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+model/training/ResizedImages
+model/training/ResizedPigments
+data/labeled_images
+data/vmd
+
 # C extensions
 *.so
 

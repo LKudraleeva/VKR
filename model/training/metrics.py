@@ -15,4 +15,4 @@ def dice_coefficient_loss(y_true, y_pred):
 
 
 def customized_loss(y_true, y_pred):
-    return (1*K.categorical_crossentropy(y_true, y_pred))+(0.5*dice_coefficient_loss(y_true, y_pred))
+    return 1. + 0.5 * dice_coefficient_loss(y_true, y_pred)

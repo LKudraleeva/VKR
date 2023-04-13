@@ -1,5 +1,5 @@
-import os
 import matplotlib.pyplot as plt
+from PIL import Image
 import numpy as np
 import cv2
 
@@ -17,7 +17,18 @@ def draw_contour(contour: np.ndarray, height: int = 256, width: int = 256):
     plt.plot(x, y)
     plt.xlim((0, width))
     plt.ylim((0, height))
+
+    plt.savefig('output.png')
     plt.show()
+
+
+def get_image(line: np.ndarray, height: int = 256, width: int = 256):
+    x, y = line[:, 0], line[:, 1]
+    output = np.zeros((height, width), dtype=np.uint8)
+    for i, j in zip(y, x):
+        output[i][j] = 255
+    img = Image.fromarray(output)
+    img.save('output.png')
 
 
 def find_interpolation(contour: np.ndarray, width: int = 256, degree: int = 3):
@@ -49,30 +60,32 @@ def get_dispersion(contour: np.ndarray, interpolation: np.ndarray):
     if contour.shape[0] == interpolation.shape[0]:
         return sum((contour[:, 1] - interpolation[:, 1]) ** 2) / interpolation.shape[0]
     else:
-        dispersion = []
-        for i in range(contour.shape[0]):
-            dispersion.append((contour[i, 1] - interpolation[i, 1]) ** 2)
+        dispersion = [(contour[i, 1] - interpolation[i, 1]) ** 2 for i in range(contour.shape[0])]
         return sum(dispersion)/contour.shape[0]
+
+
+def median_filter(rang: np.array, size: int = 3):
+    s = size//2
+    rang = np.insert(rang, 0, rang[0] * s)
+    rang = np.insert(rang, -1, rang[-1] * s)
+    return [np.median(rang[i:i+size]) for i in range(0, rang.shape[0]-size+1)]
 
 
 if __name__ == '__main__':
 
-    pigment_filenames = []
-    for p in range(5, 6):
-        path_name = 'ImagesWithLabels/' + str(p) + '/ResizedPigments/'
-        for n in os.listdir(path_name):
-            pigment_filenames.append(path_name + n)
-
-    pigment_filenames = sorted(pigment_filenames, key=lambda file: int(file.split('/')[-1].split('.')[0]))
-
-    images = [cv2.imread(file, cv2.IMREAD_GRAYSCALE) for file in pigment_filenames]
-
+    path_name = 'C:/Users/user/PycharmProjects/VKR/data/labeled_images/4/Resize/'
+    filenames = [path_name + str(i) + '.png' for i in range(1, 86)]
+    images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in filenames]
     disp = []
     for im in images:
         cont = find_contour(im)
         inter = find_interpolation(cont, im.shape[1])
         disp.append(get_dispersion(cont, inter))
 
-    gauss = find_interpolation(np.stack((np.arange(85), np.asarray(disp)), axis=-1), 85, 3)
-    plt.plot(np.arange(85), np.asarray(disp), gauss[:, 0], gauss[:, 1])
+    x = np.arange(85)
+    y = np.array(disp)
+
+    plt.plot(x, y)
     plt.show()
+
+

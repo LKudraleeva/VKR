@@ -7,9 +7,8 @@ import cv2
 def find_contour(image: np.ndarray):
     height = image.shape[0]
     width = image.shape[1]
-    contour = np.array([[i, height - 1 - np.where(image[:, i] == 255)[0][0]] for i in range(width)
-                        if np.any(image[:, i] == 255)])
-    return contour
+    return np.array([[i, height - 1 - np.where(image[:, i] == 255)[0][0]] for i in range(width)
+                     if np.any(image[:, i] == 255)])
 
 
 def draw_contour(contour: np.ndarray, height: int = 256, width: int = 256):
@@ -60,32 +59,71 @@ def get_dispersion(contour: np.ndarray, interpolation: np.ndarray):
     if contour.shape[0] == interpolation.shape[0]:
         return sum((contour[:, 1] - interpolation[:, 1]) ** 2) / interpolation.shape[0]
     else:
-        dispersion = [(contour[i, 1] - interpolation[i, 1]) ** 2 for i in range(contour.shape[0])]
-        return sum(dispersion)/contour.shape[0]
+        return sum([(contour[i, 1] - interpolation[contour[i, 0], 1]) ** 2
+                    for i in range(contour.shape[0])]) / contour.shape[0]
 
 
-def median_filter(rang: np.array, size: int = 3):
-    s = size//2
-    rang = np.insert(rang, 0, rang[0] * s)
-    rang = np.insert(rang, -1, rang[-1] * s)
-    return [np.median(rang[i:i+size]) for i in range(0, rang.shape[0]-size+1)]
+def median_filter(arr: np.array, size: int = 3):
+    s = size // 2
+    arr = np.insert(arr, 0, arr[0] * s)
+    arr = np.insert(arr, -1, arr[-1] * s)
+    return [np.median(arr[i:i + size]) for i in range(0, arr.shape[0] - size + 1)]
+
+
+def extra_filter(arr: np.array, size: int = 3):
+    result = []
+    s = size // 2
+    arr = np.insert(arr, 0, arr[0] * s)
+    arr = np.insert(arr, -1, arr[-1] * s)
+    for i in range(1, len(arr) - 1):
+        if abs(arr[i + 1] - arr[i]) > abs(arr[i - 1] - arr[i]):
+            result.append(arr[i - 1])
+        elif abs(arr[i + 1] - arr[i]) < abs(arr[i - 1] - arr[i]):
+            result.append(arr[i + 1])
+        else:
+            result.append(arr[i])
+
+    return result
 
 
 if __name__ == '__main__':
 
-    path_name = 'C:/Users/user/PycharmProjects/VKR/data/labeled_images/4/Resize/'
-    filenames = [path_name + str(i) + '.png' for i in range(1, 86)]
-    images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in filenames]
-    disp = []
-    for im in images:
-        cont = find_contour(im)
-        inter = find_interpolation(cont, im.shape[1])
-        disp.append(get_dispersion(cont, inter))
+    path_names = ['C:/Users/user/PycharmProjects/VKR/data/vmd/1/Preds/',
+                  'C:/Users/user/PycharmProjects/VKR/data/vmd/2/Preds/',
+                  'C:/Users/user/PycharmProjects/VKR/data/vmd/3/Preds/',
+                  'C:/Users/user/PycharmProjects/VKR/data/vmd/4/Preds/',
+                  'C:/Users/user/PycharmProjects/VKR/data/labeled_images/5/Resize/',
+                  'C:/Users/user/PycharmProjects/VKR/data/labeled_images/6/Resize/'
+                  ]
 
-    x = np.arange(85)
-    y = np.array(disp)
+    # path_names = ['C:/Users/user/PycharmProjects/VKR/data/labeled_images/1/Resize/',
+    #               'C:/Users/user/PycharmProjects/VKR/data/labeled_images/2/Resize/',
+    #               'C:/Users/user/PycharmProjects/VKR/data/labeled_images/3/Resize/',
+    #               'C:/Users/user/PycharmProjects/VKR/data/labeled_images/4/Resize/'
+    #               ]
 
-    plt.plot(x, y)
-    plt.show()
+    for path_name in path_names:
+        filenames = [path_name + str(i) + '.png' for i in range(1, 86)]
+        images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in filenames]
+        disp = []
+        for im in images:
+            cont = find_contour(im)
+            inter = find_interpolation(cont, im.shape[1], 3)
+            disp.append(get_dispersion(cont, inter))
 
+        x = np.arange(85)
+        y = np.array(disp)
+        y = np.array(extra_filter(extra_filter(y)))
 
+        ex = sum(y) / len(y)
+        dx = (sum((y - ex) ** 2) / y.shape[0]) ** 1/2
+        print(ex, dx)
+
+        plt.plot(y, label='Исходное')
+        # plt.plot(x, np.convolve(y, [1/3, 1/3, 1/3], 'same'), 'g', label='3x1')
+        # plt.plot(x, extra_filter(y), 'r', label='Экстремальный 1')
+        # plt.plot(x, extra_filter(extra_filter(y)), label='Экстремальный 2')
+        # plt.plot(x, np.convolve(extra_filter(extra_filter(extra_filter(y))), [1 / 3, 1 / 3, 1 / 3], 'same'))
+        # plt.plot(x, np.convolve(y, [1/3, 1/3, 1/3], 'same'), label='3x1')
+        plt.legend()
+        plt.show()

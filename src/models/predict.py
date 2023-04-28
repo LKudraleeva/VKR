@@ -11,8 +11,8 @@ height, width = 256, 256
 
 def predict(src: str, dest: str):
     images = preprocessing_images(src)
-    p_model = load_model('../../models/Pigment_model2.h5', custom_objects={'customized_loss': customized_loss,
-                                                                           'dice_coefficient': dice_coefficient})
+    p_model = load_model('../../models/Pigment_model_3.h5', custom_objects={'customized_loss': customized_loss,
+                                                                            'dice_coefficient': dice_coefficient})
     for i, image in enumerate(images):
         prediction = p_model.predict(image)
         color = labeled_image_to_color(np.squeeze(prediction, axis=0))
@@ -22,5 +22,6 @@ def predict(src: str, dest: str):
 
 
 if __name__ == '__main__':
-    predict('../../data/vmd/12/Images/', '../../data/vmd/12/Preds/')
+    predict('../../data/normal/15/Images/', '../../data/normal/15/Predictions/')
+
 

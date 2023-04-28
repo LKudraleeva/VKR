@@ -28,25 +28,38 @@ def get_dataset(images_path, labels_path):
     train_images = train_images.astype('float32')
     train_labels = train_labels.astype('float32')
 
-    return train_test_split(train_images, train_labels, test_size=0.1, random_state=42)
+    return train_test_split(train_images, train_labels, test_size=0.2, random_state=42)
 
 
 def save_reports(history):
-    epochs = range(10, 81, 2)
+    epochs = range(5, 80 + 1, 2)
 
-    plt.plot(epochs, history.history['dice_coefficient'][9::2], 'bo', label='Training dice_coefficient')
-    plt.plot(epochs, history.history['val_dice_coefficient'][9::2], 'b', label='Validation dice_coefficient')
+    plt.plot(epochs, history.history['dice_coefficient'][4:80:2], 'bo', label='Training dice_coefficient')
+    plt.plot(epochs, history.history['val_dice_coefficient'][4:80:2], 'b', label='Validation dice_coefficient')
     plt.legend()
+    plt.grid()
     plt.ylabel('dice_coefficient')
     plt.xlabel('epoch')
-    plt.savefig('reports/dice.png')
+    plt.show()
+    plt.savefig('reports/dice_coefficient.png')
 
-    plt.plot(epochs, history.history['loss'][9::2], 'bo', label='Training loss')
-    plt.plot(epochs, history.history['val_loss'][9::2], 'b', label='Validation loss')
+    plt.plot(epochs, history.history['loss'][4:80:2], 'bo', label='Training loss')
+    plt.plot(epochs, history.history['val_loss'][4:80:2], 'b', label='Validation loss')
     plt.legend()
+    plt.grid()
     plt.ylabel('loss')
     plt.xlabel('epoch')
-    plt.savefig('reports/loss.png')
+    plt.show()
+    plt.savefig('reports/dice_loss.png')
+
+    plt.plot(epochs, history.history['accuracy'][4:80:2], 'bo', label='Training accuracy')
+    plt.plot(epochs, history.history['val_accuracy'][4:80:2], 'b', label='Validation accuracy')
+    plt.legend()
+    plt.grid()
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.show()
+    plt.savefig('reports/accuracy.png')
 
 
 def train_model():
@@ -56,10 +69,10 @@ def train_model():
                   metrics=['accuracy', dice_coefficient], sample_weight_mode='temporal')
     lr_reducer = ReduceLROnPlateau(factor=0.5, cooldown=0, patience=6, min_lr=0.5e-6)
     csv_logger = CSVLogger('Model/ModelSettings/PigmentLogger.csv')
-    model_checkpoint = ModelCheckpoint("Model/ModelSettings/Pigment-weights.hdf5", monitor='val_loss', verbose=1,
+    model_checkpoint = ModelCheckpoint("Model/ModelSettings/weights2.hdf5", monitor='val_loss', verbose=1,
                                        save_best_only=True)
 
-    X, y = get_dataset('data/processed/ResizedImages/', 'data/processed/ResizedPigments/')
+    X, y = get_dataset('data/dataset/image_for_training/', 'data/dataset/labels_for_training/')
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
 
@@ -67,8 +80,8 @@ def train_model():
                   callbacks=[lr_reducer, csv_logger, model_checkpoint])
 
     save_reports(h)
-    model.load_weights('models/weights.hdf5')
-    model.save('models/Pigment-model2.h5')
+    model.load_weights('models/weights2.hdf5')
+    model.save('models/Pigment-model_3.h5')
 
 
 if __name__ == '__main__':

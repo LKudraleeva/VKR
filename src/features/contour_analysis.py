@@ -1,8 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
-
+import pandas as pd
+from sklearn import linear_model
+from sklearn.model_selection import train_test_split, cross_val_score
 from PIL import Image
+
+LEFT = 20
+RIGHT = 64
 
 
 def find_contour(image: np.ndarray):
@@ -89,68 +94,112 @@ def extra_filter(arr: np.array,
     return np.array(result)
 
 
-if __name__ == '__main__':
+def get_index(dispersion):
+    mx = sum(dispersion) / dispersion.shape[0]
+    return np.argwhere(dispersion > mx)[0][0], np.argwhere(dispersion > mx)[-1][0]
 
-    path_names = ['C:/Users/user/PycharmProjects/VKR/data/vmd/1/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/2/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/3/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/4/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/5/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/6/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/7/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/8/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/9/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/10/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/11/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/vmd/12/Preds/',
-                  'C:/Users/user/PycharmProjects/VKR/data/labeled_images/5/Resize/',
-                  'C:/Users/user/PycharmProjects/VKR/data/labeled_images/6/Resize/',
-                  'C:/Users/user/PycharmProjects/VKR/data/labeled_images/4/Resize/',
-                  ]
 
-    # path_names = ['C:/Users/user/PycharmProjects/VKR/data/labeled_images/1/Resize/',
-    #               'C:/Users/user/PycharmProjects/VKR/data/labeled_images/2/Resize/',
-    #               'C:/Users/user/PycharmProjects/VKR/data/labeled_images/3/Resize/',
-    #               'C:/Users/user/PycharmProjects/VKR/data/labeled_images/4/Resize/'
-    #               ]
-
-    ex_array, dx_array = [], []
-    label_array = [1] * 4
-
-    for idx, path_name in enumerate(path_names):
+def get_interval(dirs):
+    start, finish = 0, 0
+    for idx, path_name in enumerate(dirs):
         filenames = [path_name + str(idx) + '.png' for idx in range(1, 86)]
         images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in filenames]
-        disp = []
-        for im in images:
-            cont = find_contour(im)
-            inter = find_interpolation(cont, im.shape[1], 3)
-            disp.append(get_dispersion(cont, inter))
+        disp = scan_analiz(images)
+        start += get_index(disp)[0]
+        finish += get_index(disp)[1]
 
-        disp = np.array(disp)
-        # disp = np.array(extra_filter(extra_filter(disp)))
+    return int(np.around(start / len(dirs))), int(np.around(finish / len(dirs)))
 
+
+def get_stats_in_interval(dirs, start, finish):
+    ex_array, dx_array = [], []
+
+    for idx, path_name in enumerate(dirs):
+        filenames = [path_name + str(idx) + '.png' for idx in range(start, finish + 1)]
+        images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in filenames]
+        disp = scan_analiz(images)
         ex = sum(disp) / disp.shape[0]
-        dx = (sum((disp - ex) ** 2) / disp.shape[0]) ** 1 / 2
-        ex_array.append(ex)
-        dx_array.append(dx)
-        plt.subplot(5, 3, idx+1)
-        plt.plot(disp, label='Исходное')
+        ex_array.append(sum(disp) / disp.shape[0])
+        dx_array.append((sum((disp - ex) ** 2) / disp.shape[0]) ** 1 / 2)
+        # print(ex, (sum((disp - ex) ** 2) / disp.shape[0]) ** 1 / 2)
 
-        # plt.fill_between(np.arange(1, 86),
-        #                  np.array([ex + dx] * 85),
-        #                  np.array([ex - dx] * 85),
-        #                  facecolor='r',
-        #                  alpha=0.5,)
-        # plt.plot(median_filter(disp), label='Медианный')
-        # plt.plot(x, np.convolve(extra_filter(extra_filter(extra_filter(y))), [1 / 3, 1 / 3, 1 / 3], 'same'))
-        plt.plot(np.arange(1, 86), extra_filter(extra_filter(extra_filter(disp))), label='Экстремальный 3')
-        # plt.plot(np.arange(1, 86), np.convolve(disp, [1 / 3, 1 / 3, 1 / 3], 'same'), label='3x1')
-        y2 = extra_filter(extra_filter(extra_filter(disp)))
-        ex2 = sum(y2) / y2.shape[0]
+    return np.array([ex_array, dx_array])
 
-        plt.plot([ex] * 85, label='МО', c='r')
 
-        plt.plot([ex2] * 85, label='МО экстремальный')
-        # plt.legend()
+def scan_analiz(images):
+    disp = []
+    for im in images:
+        cont = find_contour(im)
+        inter = find_interpolation(cont, im.shape[1], 4)
+        disp.append(get_dispersion(cont, inter))
+    return np.array(disp)
+
+
+def classificator(people):
+    X = people[:, 0:2].astype('float32')
+    y = people[:, 2].astype('int')
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y)
+    logr = linear_model.LogisticRegression()
+    logr.fit(X_train, y_train)
+
+    scores = cross_val_score(logr, X, y, cv=10)
+    print('Cross-Validation Accuracy Scores', scores)
+    scores = pd.Series(scores)
+    print(scores.mean())
+
+
+if __name__ == '__main__':
+    ill = ['C:/Users/user/PycharmProjects/VKR/data/vmd/' + str(i) + '/Predictions/' for i in range(1, 14)]
+    normal = ['C:/Users/user/PycharmProjects/VKR/data/normal/' + str(i) + '/Predictions/' for i in range(1, 16)]
+    a = 20
+    b = 64
+    ill_stats = get_stats_in_interval(ill, a, b).T
+    normal_stats = get_stats_in_interval(normal, a, b).T
+
+    plt.scatter(ill_stats[:, 0], ill_stats[:, 1], label='ВМД')
+    plt.scatter(normal_stats[:, 0], normal_stats[:, 1], label='Здоровые')
+    plt.legend()
+    plt.xlim(-1, 12)
+    plt.ylim(-1, 12)
+    plt.xlabel('Мат. ожидание')
+    plt.ylabel('Дисперсия')
+    plt.grid()
     plt.show()
 
+    ill_stats = np.column_stack((ill_stats, [1] * 13))
+    normal_stats = np.column_stack((normal_stats, [0] * 15))
+    all_people = np.append(ill_stats, normal_stats, axis=0)
+    classificator(all_people)
+
+    # for idx, path_name in enumerate(path_names):
+    #     filenames = [path_name + str(idx) + '.png' for idx in range(20, 65)]
+    #     images = [cv2.imread(f, cv2.IMREAD_GRAYSCALE) for f in filenames]
+    #     disp = []
+    #     for im in images:
+    #         cont = find_contour(im)
+    #         inter = find_interpolation(cont, im.shape[1], 4)
+    #         disp.append(get_dispersion(cont, inter))
+
+    #     disp = np.array(disp)
+    #     # disp = np.array(extra_filter(extra_filter(disp)))
+    #
+    #     ex = sum(disp) / disp.shape[0]
+    #     dx = (sum((disp - ex) ** 2) / disp.shape[0]) ** 1 / 2
+    #     ex_array.append(ex)
+    #     dx_array.append(dx)
+    #     plt.subplot(5, 3, idx + 1)
+    #     # plt.plot(disp, label='Исходное')
+    #     print(ex, dx)
+    #
+    #     # plt.plot(median_filter(disp), label='Медианный')
+    #     # plt.plot(x, np.convolve(extra_filter(extra_filter(extra_filter(y))), [1 / 3, 1 / 3, 1 / 3], 'same'))
+    #     plt.plot(np.arange(20, 65), extra_filter(extra_filter(extra_filter(disp))), label='Экстремальный 3')
+    #     y2 = extra_filter(extra_filter(extra_filter(disp)))
+    #     ex2 = sum(y2) / y2.shape[0]
+    #
+    #     # plt.plot([ex] * 85, label='МО', c='r')
+    #
+    #     plt.plot(np.arange(20, 65), [ex2] * 45, label='МО экстремальный')
+    #     # plt.legend()
+
+    # plt.show()

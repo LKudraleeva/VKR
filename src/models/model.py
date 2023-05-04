@@ -52,7 +52,7 @@ def get_model():
     L23 = BatchNormalization()(L22)
     L23 = Activation('relu')(L23)
 
-    L24 = Conv2D(2, kernel_size=(1, 1), padding="same", kernel_regularizer=regularizers.l2(weight_decay))(L23)
+    L24 = Conv2D(3, kernel_size=(1, 1), padding="same", kernel_regularizer=regularizers.l2(weight_decay))(L23)
     L = Activation('softmax')(L24)
 
     return Model(inputs=inputs, outputs=L)

@@ -38,6 +38,23 @@ def labeled_image_to_color(image):
     return final_image
 
 
+def segmentation_result(image, area: str):
+    dic = {'retina': 1, 'pigment': 2}
+    output = np.argmax(image, axis=2)
+
+    final_image = np.zeros((256, 256, 3), dtype=np.uint8)
+
+    if area == 'pigment' or area == 'retina':
+        final_image[np.where(output == dic['pigment'])] = [255, 255, 255]
+        if area == 'retina':
+            final_image[np.where(output == dic[area])] = [255, 255, 255]
+    else:
+        final_image[np.where(output == dic['retina'])] = [255, 255, 255]
+        final_image[np.where(output == dic['pigment'])] = [255, 0, 0]
+
+    return final_image
+
+
 def resize_file(src: str, dest: str):
     image = Image.open(src)
     image = image.crop((0, 200, 640, 840))
@@ -48,7 +65,8 @@ def resize_file(src: str, dest: str):
 
 def preprocessing_files(src: str, dest: str):
     files = [src + n for n in os.listdir(src)]
-    files = sorted(files, key=lambda file: int(re.findall('\d+', file.split('_')[-1])[0]))
+    # files = sorted(files, key=lambda file: int(re.findall('\d+', file.split('_')[-1])[0]))
+    files = sorted(files, key=lambda file: int((file.split('/')[-1]).split('.')[0]))
     for i, f in enumerate(files):
         resize_file(f, dest + str(i + 1) + '.png')
 
